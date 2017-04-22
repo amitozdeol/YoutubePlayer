@@ -7,20 +7,26 @@ package com.youtubeapp;
 import java.util.ArrayList;
 import java.util.List;
 
+import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.v4.app.Fragment;
 import android.support.v4.widget.SwipeRefreshLayout;
+import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.WebChromeClient;
+import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.AbsListView;
 import android.widget.ArrayAdapter;
 import android.widget.LinearLayout;
 import android.widget.ListView;
+import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
@@ -34,6 +40,7 @@ public class PostsFragment extends Fragment{
 
     ListView postsList;
     WebView webView;
+    ProgressBar webviewprogress;
     ArrayAdapter<Post> adapter;
     Handler handler;
     View spinner;
@@ -42,6 +49,9 @@ public class PostsFragment extends Fragment{
     String subreddit;
     List<Post> posts;
     PostsHolder postsHolder;
+
+    private  boolean flag_loading = false;
+    private int listposition = 0;
 
     public PostsFragment(){
         handler=new Handler();
@@ -63,20 +73,15 @@ public class PostsFragment extends Fragment{
                 , container
                 , false);
         swipeView = (SwipeRefreshLayout) v.findViewById(R.id.swipe);
-
         swipeView.setEnabled(false);
         postsList=(ListView)v.findViewById(R.id.posts_list);
+
         webView = (WebView) v.findViewById(R.id.webview);
         webView.setWebViewClient(new MyBrowser());
 
         spinner = (View)v.findViewById(R.id.loadingPanel);
+        webviewprogress = (ProgressBar) v.findViewById(R.id.Webviewloading);
         return v;
-    }
-
-    @Override
-    public void onPause() {
-        super.onPause();
-        System.out.println("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk");
     }
 
     @Override
@@ -174,6 +179,7 @@ public class PostsFragment extends Fragment{
         };
         spinner.setVisibility(View.GONE);
         postsList.setAdapter(adapter);
+
         //pull to refresh
         swipeView.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
             @Override
@@ -195,12 +201,45 @@ public class PostsFragment extends Fragment{
 
             @Override
             public void onScroll(AbsListView absListView, int firstVisibleItem, int visibleItemCount, int totalItemCount) {
-                if (firstVisibleItem == 0)
+
+                if (firstVisibleItem < listposition && flag_loading){
+                    flag_loading = false;
+                    postsList.setSelection(listposition);
+
+                }
+                if(firstVisibleItem+visibleItemCount == totalItemCount && totalItemCount!=0)
+                {
+
+                    if(flag_loading == false)
+                    {
+                        flag_loading = true;
+                        listposition = firstVisibleItem;
+                        new Thread(){
+                            public void run(){
+                                posts.addAll(postsHolder.fetchMorePosts());
+
+                                // UI elements should be accessed only in
+                                // the primary thread, so we must use the
+                                // handler here.
+
+                                handler.post(new Runnable(){
+                                    public void run(){
+                                        createAdapter();
+                                    }
+                                });
+                            }
+                        }.start();
+                    }
+                }
+
+                if (firstVisibleItem == 0) {
                     swipeView.setEnabled(true);
+                }
                 else
                     swipeView.setEnabled(false);
             }
         });
+
 
     }
 
@@ -212,6 +251,18 @@ public class PostsFragment extends Fragment{
         public boolean shouldOverrideUrlLoading(WebView view, String url) {
             view.loadUrl(url);
             return true;
+        }
+
+        @Override
+        public void onPageStarted(WebView view, String url, Bitmap favicon) {
+            super.onPageStarted(view, url, favicon);
+            webviewprogress.setVisibility(View.VISIBLE);
+        }
+
+        @Override
+        public void onPageFinished(WebView view, String url) {
+            super.onPageFinished(view, url);
+            webviewprogress.setVisibility(View.GONE);
         }
     }
 

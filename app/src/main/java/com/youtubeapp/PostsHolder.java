@@ -64,10 +64,12 @@ public class PostsHolder {
             //Using this property we can fetch the next set of
             //posts from the same subreddit
             after=data.getString("after");
+            System.out.println(after);
 
             for(int i=1;i<children.length();i++){
                 JSONObject cur=children.getJSONObject(i)
                         .getJSONObject("data");
+                JSONObject media=cur.getJSONObject("media_embed");              //use it to get iframe
                 Post p=new Post();
                 p.title=cur.optString("title");
                 p.url=cur.optString("url");
